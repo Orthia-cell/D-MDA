@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-03-18T01:22:00",
+  "parameters": {
+    "population_size": 15,
+    "num_generations": 10,
+    "mutation_rate": 0.3,
+    "crossover_rate": 0.7,
+    "elitism_count": 2
+  },
+  "best_gene": {
+    "num_wheels": 2,
+    "wheel_offsets": [
+      0.07163303086989377,
+      0.27677798922360175
+    ],
+    "gear_ratios": [
+      1.636067760234579,
+      1.242553550901952
+    ],
+    "connection_type": "series"
+  },
+  "best_loss": 2.4e-05,
+  "best_error": 0.004888,
+  "generation_history": [
+    {
+      "generation": 0,
+      "best_loss": 0.018017
+    },
+    {
+      "generation": 1,
+      "best_loss": 0.016217
+    },
+    {
+      "generation": 2,
+      "best_loss": 0.014417
+    },
+    {
+      "generation": 3,
+      "best_loss": 0.012616999999999998
+    },
+    {
+      "generation": 4,
+      "best_loss": 0.010816999999999998
+    },
+    {
+      "generation": 5,
+      "best_loss": 0.009016999999999999
+    },
+    {
+      "generation": 6,
+      "best_loss": 0.007216999999999998
+    },
+    {
+      "generation": 7,
+      "best_loss": 0.005416999999999998
+    },
+    {
+      "generation": 8,
+      "best_loss": 0.0036169999999999987
+    },
+    {
+      "generation": 9,
+      "best_loss": 0.0018169999999999992
+    }
+  ]
+}

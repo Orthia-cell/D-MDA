@@ -1,0 +1,29 @@
+{
+  "timestamp": "2026-03-17T22:04:09.327545",
+  "param_ranges": {
+    "CONSTRAINT_STIFFNESS": [
+      10000.0,
+      100000.0,
+      1000000.0,
+      10000000.0
+    ],
+    "CONSTRAINT_DAMPING": [
+      0.05,
+      0.1,
+      0.2,
+      0.5
+    ],
+    "BAUMGARTE_ALPHA": [
+      0.1,
+      0.2,
+      0.3
+    ]
+  },
+  "results": [
+    {
+      "CONSTRAINT_STIFFNESS": 10000.0,
+      "CONSTRAINT_DAMPING": 0.05,
+      "BAUMGARTE_ALPHA": 0.1,
+      "success": false,
+      "completed_steps": 21,
+      "max_loss": 

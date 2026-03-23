@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wheel-Disk Integrator Simulation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: #1a1a1a;
+            color: white;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        #ui-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 20px;
+            border-radius: 10px;
+            width: 300px;
+            border: 1px solid #444;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        h2 {
+            margin-top: 0;
+            color: #4fc3f7;
+            font-size: 18px;
+            border-bottom: 2px solid #4fc3f7;
+            padding-bottom: 10px;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+            color: #ccc;
+        }
+        input[type="range"] {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+        .value-display {
+            text-align: right;
+            color: #4fc3f7;
+            font-weight: bold;
+            font-family: monospace;
+        }
+        button {
+            background: #4fc3f7;
+            color: black;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        button:hover {
+            background: #29b6f6;
+        }
+        button.reset {
+            background: #ff7043;
+        }
+        button.reset:hover {
+            background: #f4511e;
+        }
+        #graph-container {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 15px;
+            border-radius: 10px;
+            width: 400px;
+            height: 200px;
+            border: 1px solid #444;
+        }
+        canvas#graph {
+            width: 100%;
+            height: 150px;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-size: 12px;
+            font-family: monospace;
+        }
+        .formula {
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            text-align: center;
+            color: #81c784;
+        }
+        .explanation {
+            font-size: 12px;
+            line-height: 1.4;
+            color: #aaa;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #444;
+        }
+        .preset-buttons {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+        .preset-btn {
+            background: #666;
+            color: white;
+            font-size: 11px;
+            padding: 5px 10px;
+        }
+        .preset-btn:hover {
+            background: #888;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    
+    <div id="ui-panel">
+        <h2>⚙️ Wheel-Disk Integrator</h2>
+        
+        <div class="formula">
+            dθ<sub>wheel</sub> = (r/R) × dθ<sub>disk</sub><br>
+            Output = ∫ r × ω<sub>disk</sub> dt
+        </div>
+        
+        <div class="control-group">
+            <label>Wheel Radius Position (r)</label>
+            <input type="range" id="radiusSlider" min="0" max="0.9" step="0.01" value="0.5">
+            <div class="value-display" id="radiusValue">0.50</div>
+        </div>
+        
+        <div class="control-group">
+            <label>Disk Rotation Speed (Input)</label>
+            <input type="range" id="speedSlider" min="-2" max="2" step="0.1" value="1">
+            <div class="value-display" id="speedValue">1.0 rad/s</div>
+        </div>
+        
+        <div class="control-group">
+            <label>Input Presets</label>
+            <div class="preset-buttons">
+                <button class="preset-btn" onclick="setPreset('constant')">Constant</button>
+                <button class="preset-btn" onclick="setPreset('sine')">Sine Wave</button>
+                <button class="preset-btn" onclick="setPreset('ramp')">Ramp</button>
+                <button class="preset-btn" onclick="setPreset('zero')">Stop</button>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <button onclick="toggleAnimation()" id="playBtn">⏸ Pause</button>
+            <button class="reset" onclick="resetSimulation()">↺ Reset</button>
+            <button onclick="clearGraph()">Clear Graph</button>
+        </div>
+        
+        <div class="stats">
+            <span>Integral: <span id="integralValue" style="color: #4fc3f7">0.00</span></span>
+            <span>Disk θ: <span id="diskAngle" style="color: #ff7043">0°</span></span>
+        </div>
+        
+        <div class="explanation">
+            <strong>How it works:</strong> The big disk spins (input). The small wheel rolls on it 
+            without slipping. The wheel's total rotation equals the integral of the disk's rotation 
+            weighted by the radius position. Move the wheel to different radii to change the 
+            integration weight.
+        </div>
+    </div>
+    
+    <div id="graph-container">
+        <div style="text-align: center; font-size: 14px; margin-bottom: 5px; color: #4fc3f7;">
+            Integration Output Over Time
+        </div>
+        <canvas id="graph"></canvas>
+    </div>
+
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x222222);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 8, 8);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(5, 10, 5);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+
+        // Materials
+        const diskMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x4fc3f7, 
+            shininess: 100, 
+            specular: 0x111111 
+        });
+        const wheelMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0xff7043, 
+            shininess: 100 
+        });
+        const metalMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x888888, 
+            metalness: 0.8, 
+            roughness: 0.2 
+        });
+
+        // Create Disk (The turntable)
+        const diskGeometry = new THREE.CylinderGeometry(3, 3, 0.2, 64);
+        const disk = new THREE.Mesh(diskGeometry, diskMaterial);
+        disk.receiveShadow = true;
+        scene.add(disk);
+
+        // Add grid pattern to disk for visual rotation reference
+        const gridHelper = new THREE.GridHelper(6, 20, 0x000000, 0x000000);
+        gridHelper.position.y = 0.11;
+        gridHelper.material.opacity = 0.3;
+        gridHelper.material.transparent = true;
+        disk.add(gridHelper);
+
+        // Add radius markers
+        for (let i = 1; i <= 3; i++) {
+            const ringGeometry = new THREE.RingGeometry(i - 0.05, i + 0.05, 64);
+            const ringMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0x000000, 
+                opacity: 0.2, 
+                transparent: true, 
+                side: THREE.DoubleSide 
+            });
+            const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+            ring.rotation.x = -Math.PI / 2;
+            ring.position.y = 0.11;
+            disk.add(ring);
+        }
+
+        // Create Wheel
+        const wheelRadius = 0.4;
+        const wheelGeometry = new THREE.CylinderGeometry(wheelRadius, wheelRadius, 0.15, 32);
+        wheelGeometry.rotateZ(Math.PI / 2); // Make it roll along the disk radius
+        const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+        wheel.castShadow = true;
+        scene.add(wheel);
+
+        // Wheel axle (visual)
+        const axleGeometry = new THREE.CylinderGeometry(0.05, 0.05, 1, 16);
+        axleGeometry.rotateZ(Math.PI / 2);
+        const axle = new THREE.Mesh(axleGeometry, metalMaterial);
+        wheel.add(axle);
+
+        // Pointer on wheel to see rotation
+        const pointerGeometry = new THREE.BoxGeometry(0.6, 0.05, 0.05);
+        const pointer = new THREE.Mesh(pointerGeometry, new THREE.MeshBasicMaterial({ color: 0xffff00 }));
+        pointer.position.y = 0.1;
+        wheel.add(pointer);
+
+        // Radial arm (carriage)
+        const armGroup = new THREE.Group();
+        scene.add(armGroup);
+
+        // Arm structure
+        const armGeometry = new THREE.BoxGeometry(0.1, 0.1, 4);
+        const arm = new THREE.Mesh(armGeometry, metalMaterial);
+        arm.position.z = 2;
+        armGroup.add(arm);
+
+        // Support tower for the arm
+        const towerGeometry = new THREE.BoxGeometry(0.3, 2, 0.3);
+        const tower = new THREE.Mesh(towerGeometry, metalMaterial);
+        tower.position.set(0, 1, 3.5);
+        scene.add(tower);
+
+        // Add contact point indicator
+        const contactGeometry = new THREE.SphereGeometry(0.08, 16, 16);
+        const contactMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        const contactPoint = new THREE.Mesh(contactGeometry, contactMaterial);
+        scene.add(contactPoint);
+
+        // Variables
+        let diskAngle = 0;
+        let wheelAngle = 0;
+        let integralValue = 0;
+        let diskSpeed = 1;
+        let wheelRadiusPos = 0.5;
+        let isRunning = true;
+        let time = 0;
+        let presetMode = 'constant';
+
+        // Graph setup
+        const graphCanvas = document.getElementById('graph');
+        const graphCtx = graphCanvas.getContext('2d');
+        graphCanvas.width = 400;
+        graphCanvas.height = 150;
+        const graphData = [];
+        const maxDataPoints = 200;
+
+        // Controls
+        const radiusSlider = document.getElementById('radiusSlider');
+        const speedSlider = document.getElementById('speedSlider');
+        const radiusDisplay = document.getElementById('radiusValue');
+        const speedDisplay = document.getElementById('speedValue');
+        const integralDisplay = document.getElementById('integralValue');
+        const diskAngleDisplay = document.getElementById('diskAngle');
+
+        radiusSlider.addEventListener('input', (e) => {
+            wheelRadiusPos = parseFloat(e.target.value);
+            radiusDisplay.textContent = wheelRadiusPos.toFixed(2);
+            updateWheelPosition();
+        });
+
+        speedSlider.addEventListener('input', (e) => {
+            diskSpeed = parseFloat(e.target.value);
+            speedDisplay.textContent = diskSpeed.toFixed(1) + ' rad/s';
+        });
+
+        function updateWheelPosition() {
+            // Position wheel on disk at specified radius
+            wheel.position.x = wheelRadiusPos * 3; // 3 is disk radius
+            wheel.position.y = wheelRadius + 0.1; // Sit on top of disk
+            wheel.position.z = 0;
+
+            // Update contact point visual
+            contactPoint.position.copy(wheel.position);
+            contactPoint.position.y = 0.1;
+
+            // Update arm to follow wheel
+            armGroup.rotation.y = 0; // Keep arm along x-axis for simplicity
+            arm.position.x = wheelRadiusPos * 3 / 2;
+            arm.scale.z = wheelRadiusPos;
+        }
+
+        function setPreset(mode) {
+            presetMode = mode;
+            time = 0;
+            if (mode === 'zero') {
+                diskSpeed = 0;
+                speedSlider.value = 0;
+                speedDisplay.textContent = '0.0 rad/s';
+            }
+        }
+
+        function toggleAnimation() {
+            isRunning = !isRunning;
+            document.getElementById('playBtn').textContent = isRunning ? '⏸ Pause' : '▶ Play';
+        }
+
+        function resetSimulation() {
+            diskAngle = 0;
+            wheelAngle = 0;
+            integralValue = 0;
+            time = 0;
+            graphData.length = 0;
+            disk.rotation.y = 0;
+            wheel.rotation.x = 0;
+            updateWheelPosition();
+        }
+
+        function clearGraph() {
+            graphData.length = 0;
+        }
+
+        function updatePhysics(dt) {
+            if (!isRunning) return;
+            time += dt;
+
+            // Handle presets
+            let currentSpeed = diskSpeed;
+            if (presetMode === 'sine') {
+                currentSpeed = Math.sin(time) * diskSpeed;
+            } else if (presetMode === 'ramp') {
+                currentSpeed = (time % 10) / 5 * diskSpeed;
+            }
+
+            // Update disk rotation
+            const dDisk = currentSpeed * dt;
+            diskAngle += dDisk;
+            disk.rotation.y = diskAngle;
+
+            // Physics: No-slip condition
+            // v_contact = ω_disk × r = ω_wheel × R_wheel
+            // ω_wheel = (ω_disk × r) / R_wheel
+            const r = wheelRadiusPos * 3; // actual radius in world units
+            const dWheel = (dDisk * r) / wheelRadius;
+            wheelAngle += dWheel;
+
+            // Update wheel rotation (around its axle)
+            wheel.rotation.x = wheelAngle;
+
+            // Update integral (accumulated value)
+            // The integral is essentially the wheel angle (scaled)
+            integralValue = wheelAngle * (wheelRadius / 3); // Normalize
+
+            // Update displays
+            integralDisplay.textContent = integralValue.toFixed(2);
+            diskAngleDisplay.textContent = (diskAngle * 180 / Math.PI % 360).toFixed(0) + '°';
+
+            // Update graph data
+            graphData.push(integralValue);
+            if (graphData.length > maxDataPoints) {
+                graphData.shift();
+            }
+        }
+
+        function drawGraph() {
+            const ctx = graphCtx;
+            const w = graphCanvas.width;
+            const h = graphCanvas.height;
+
+            // Clear
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, w, h);
+
+            // Grid lines
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let i = 0; i < w; i += 50) {
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, h);
+            }
+            for (let i = 0; i < h; i += 30) {
+                ctx.moveTo(0, i);
+                ctx.lineTo(w, i);
+            }
+            ctx.stroke();
+
+            if (graphData.length < 2) return;
+
+            // Find range
+            const min = Math.min(...graphData, 0);
+            const max = Math.max(...graphData, 0);
+            const range = max - min || 1;
+            const padding = 20;
+
+            // Draw line
+            ctx.strokeStyle = '#4fc3f7';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let i = 0; i < graphData.length; i++) {
+                const x = (i / (maxDataPoints - 1)) * w;
+                const y = h - padding - ((graphData[i] - min) / range) * (h - 2 * padding);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Draw current value dot
+            const lastY = h - padding - ((graphData[graphData.length - 1] - min) / range) * (h - 2 * padding);
+            ctx.fillStyle = '#ff7043';
+            ctx.beginPath();
+            ctx.arc(w - 5, lastY, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Animation loop
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = clock.getDelta();
+            
+            updatePhysics(dt);
+            drawGraph();
+            
+            renderer.render(scene, camera);
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Initialize
+        updateWheelPosition();
+        animate();
+    </script>
+</body>
+</html>
